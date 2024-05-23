@@ -1,0 +1,19 @@
+class SparkEnv(object):
+    OVERWRITE: str = "overwrite"
+    APPEND: str = "append"
+    NUM_PARTITIONS_ONE: int = 1
+    NUM_PARTITIONS_TWO: int = 2
+    NUM_PARTITIONS_TINY: int = 4
+    NUM_PARTITIONS_SMALL: int = 8
+    NUM_PARTITIONS_MEDIUM: int = 16
+    NUM_PARTITIONS_LARGE: int = 32
+    NUM_PARTITIONS_XLARGE: int = 64
+    COMPRESSION_DEFAULT: str = "snappy"
+    COMPRESSION_NONE: str = "none"
+    COMPRESSION_GZIP: str = "gzip"
+    COMPRESSION_SNAPPY: str = "snappy"
+    PARQUET_BLOCK_SIZE_DEFAULT: int = 32 * 1024 * 1024
+    PARQUET_PAGE_SIZE_DEFAULT: int = 2 * 1024 * 1024
+    PARQUET_DICTIONARY_PAGE_SIZE_DEFAULT: int = 8 * 1024 * 1024
+    JDBC_DRIVER_DEFAULT: str = "oracle.jdbc.driver.OracleDriver"
+    FETCH_SIZE_DEFAULT: int = 1000

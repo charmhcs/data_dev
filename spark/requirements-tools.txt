@@ -1,0 +1,8 @@
+# requirements-tools.txt
+python==3.7.16
+pyspark==3.3.1
+openjdk==8.0.332
+pytest==7.1.2
+conda-build==3.22.0
+setuptools==59.8.0
+ipykernel==6.15.1

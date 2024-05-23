@@ -1,0 +1,16 @@
+version: "3"
+
+services:
+  minio:
+    image: minio/minio
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=miniopass
+    volumes:
+      - /var/tmp/minio:/data
+    ports:
+      - 9002:9000
+      - 9001:9001
+    command: server /data --console-address ":9001"
+    shm_size: '1gb'
+    restart: always
