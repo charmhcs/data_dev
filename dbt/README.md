@@ -1,0 +1,302 @@
+# 0. athena with dbt
+
+- https://github.com/dbt-athena/dbt-athena
+- DBT 설치 - with miniconda / conda가 설치되었다는 가정 아래 실행
+
+    ```bash
+    (base)% conda create -n dbt python=3.8.17 #python 버전은 airflow와 동일
+    (base)% conda activate dbt
+    (dbt)% pip install dbt-athena-community==1.7.2
+    ```
+
+- **dbt Cloud 는 지원하지 않음. 즉 dbt cli로만 수행 가능**
+- athena3를 이용하면, Apache iceberg table을 통한 merge도 간단하게 구현
+
+# 1. project 생성
+
+## 1.1 project 초기화
+
+- 아래와 같이 실행되면, dbt project가 초기화 되며, 필요한 폴더를 모두 자동으로 구성해준다.
+
+```bash
+(dbt)% dbt init **{project_name}**
+
+06:24:28  Running with dbt=1.7.14
+06:24:28
+Your new dbt project "**{project_name}**" was created!
+
+For more information on how to configure the profiles.yml file,
+please consult the dbt documentation here:
+
+  https://docs.getdbt.com/docs/configure-your-profile
+
+One more thing:
+
+Need help? Don't hesitate to reach out to us via GitHub issues or on Slack:
+
+  https://community.getdbt.com/
+
+Happy modeling!
+
+06:24:28  Setting up your profile.
+Which database would you like to use?
+[1] athena
+
+(Don't see the one you want? https://docs.getdbt.com/docs/available-adapters)
+
+Enter a number: 1
+s3_staging_dir (S3 location to store Athena query results and metadata, e.g. s3://athena_query_result/prefix/): **{target_s3_location_metadata}**
+s3_data_dir (S3 location where to store data/tables, e.g. s3://bucket_name/prefix/): **{target_s3_location_data}**
+region_name (AWS region of your Athena instance): ap-northeast-2
+schema (Specify the schema (Athena database) to build models into (lowercase only)): **{awsdatacaralog_database_name}**
+database (Specify the database (Data catalog) to build models into (lowercase only)) [awsdatacatalog]:
+threads (1 or more) [1]: 1
+```
+
+- dbt 프로젝트 tree를 다음과 같이 설정해보자.  일반적으로 아래와 같이 폴더 트리가 가 생성된다.
+
+```sql
+**{project_name}**
+├── analyses
+├── models
+|		└── **{sub_schema_name}**
+|       ├── my_first_dbt_model.sql
+|       ├── my_second_dbt_model.sql
+|       └── schema.yml
+├── seeds
+├── data
+├── macros
+├── tests
+├── snapshots
+├── .gitignore
+├── README.md
+└── dbt_project.yml
+.user.yml
+profiles.yml
+logs
+```
+
+## 1.2 profiles.yml
+
+- 해당 파일은 dbt가 동작을 위한 데이터 엔진에 대한 글로벌 설정임
+- dbt 프로젝트가 생성되면, 해당 폴더에 project_name아래, dbt 프로젝트가 생성 되며, 첫 실행 시, 사용자home의 .dbt에 profiles.yml이 생성됨
+- profiles.yml은 팀 빌딩시 공용으로 사용할 수 있으므로, dbt init을 실행한 dbt root폴더에 profiles.yml을 옴기는것으로 함
+- profiles.yml의 target에 따라서 env에 따른 설정을 변경할 수 있음
+- `ws_access_key_id, aws_secret_access_key` 등 설정
+- [DBT 프로파일 설정](https://github.com/dbt-athena/dbt-athena?tab=readme-ov-file#configuring-your-profile)
+
+```bash
+**{project_name}**:
+  outputs:
+    dev:
+      database: awsdatacatalog
+      region_name: ap-northeast-2
+      s3_data_dir: **{target_dev_s3_location_metadata}**
+      s3_staging_dir: **{target_dev_s3_location_data}**
+      schema: **{awsdatacaralog_database_name}**
+      threads: 1
+      type: athena
+    prod:
+      database: awsdatacatalog
+      region_name: ap-northeast-2
+      s3_data_dir: **{target_prod_s3_location_metadata}**
+      s3_staging_dir: **{target_prod_s3_location_data}**
+      schema: **{awsdatacaralog_database_name}**
+      threads: 4
+      type: athena
+  target: dev
+```
+
+## 1.3 dbt_project.yml
+
+- 해당 파일은 dbt의 transfrom에 사용 되는 코드 및 하위 폴더 등 기준 파일에 대한 설정이다.
+- seed 등 코드 재사용을 위한 데이터 위치를 지정할 수 있다.
+
+```sql
+# Name your project! Project names should contain only lowercase characters
+# and underscores. A good package name should reflect your organization's
+# name or the intended use of these models
+name: '**{project_name}**'
+version: '1.0.0'
+
+# This setting configures which "profile" dbt uses for this project.
+profile: '**{project_name}**'
+
+# These configurations specify where dbt should look for different types of files.
+# The `model-paths` config, for example, states that models in this project can be
+# found in the "models/" directory. You probably won't need to change these!
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:         # directories to be removed by `dbt clean`
+  - "target"
+  - "dbt_packages"
+
+# Configuring models
+# Full documentation: https://docs.getdbt.com/docs/configuring-models
+
+# In this example config, we tell dbt to build all models in the example/
+# directory as views. These settings can be overridden in the individual model
+# files using the `{{ config(...) }}` macro.
+models:
+  **{project_name}**:
+    # Config indicated by + and applies to all files under models/example/
+    **{sub_schema_name}**:
+      +materialized: incremental
+
+```
+
+## 1.4 database 생성
+
+- athena를 이용하므로, awsdatacatalog내에 기본적으로 사용할 database를 생성한다.
+- 위 profiles.yml에 schema 필드와 database가 매칭되며, dbt를 처음 실행할때, 자동 생성됨
+- 수동으로 생성하고 싶다면 아래와 같이 미리 생성
+
+    ```sql
+    CREATE DATABASE IF NOT EXISTS analytics_dev
+    COMMENT 'Analytics models generated by dbt (development)'
+    LOCATION 's3://my-bucket/'
+    WITH DBPROPERTIES ('creator'='Foo Bar', 'email'='foo@bar.com');
+    ```
+
+
+# 2. models
+
+- dbt를 통해 athena를 실행시키기 위한 SQL파일이 존재하는 폴더
+- 대부분의 코드 개발은  model 에서 이루어짐
+- [DBT Athena 테이블 구성 설정 목록](https://github.com/dbt-athena/dbt-athena?tab=readme-ov-file#table-configuration)
+- 예제 - order.sql
+
+    ```sql
+    {{ config(
+        materialized='incremental',
+        table_type='iceberg',
+        incremental_strategy='merge',
+        s3_data_naming='schema_table',
+        on_schema_change='append_new_columns',
+        format='parquet',
+        unique_key='order_id',
+        partitioned_by=['ordered_at', 'created_at'],
+        table_properties={
+         'optimize_rewrite_delete_file_threshold': '2'
+         },
+        schema='{**sub_schema_name**}',
+    ) }}
+
+    SELECT *
+    FROM   temp_record
+    WHERE  ordered_at = '{{ var('ordered_at') }}'
+    ```
+
+    - order.sql로 파일명을 설정하면, table name은 order임
+    - database는 profiles.yml의  schema + models/order.sql의 config에 있는 schema의 조합으로 명령됨
+        - **{awsdatacaralog_database_name}_{sub_schema_name}**
+        - awsdatacaralog_database_name가 tier2 sub_schema_name가  order인 경우
+            - tier2_order ←로 database 명이 명령됨
+    - table name은 파일명으로 고정
+        - [테이블 위치 명령 규칙 링크](https://github.com/dbt-athena/dbt-athena?tab=readme-ov-file#table-location)
+    - table data위치는 s3_data_naming 룰에 의해 결정됨
+        - [테이블 위치 규칙 링크](https://github.com/dbt-athena/dbt-athena?tab=readme-ov-file#table-location)
+
+# 3. DBT 실행
+
+- DBT cli 실행
+
+    ```bash
+    dbt run --profiles-dir ../ --vars '{"ord_date_ymd":"2024-01-01"}'
+    ```
+
+- iecberg table merge 처리 프로세스
+
+[스크린샷 2024-05-14 오후 1.58.42.png](https://viewer.diagrams.net/?border=0&tags=%7B%7D&highlight=0000ff&edit=_blank&layers=1&nav=1&title=datalake.drawio#R5Vrbdto6EP0a1koekmX57kcgl56TNE0LbZq%2BdAlbYLXGcmURoF9%2FJCxjGyuGJoYkPeTB1uhmzWyN9ozSMfrTxSWFSfieBCjq6Fqw6BhnHV0HpmHyh5AsM4ljg0wwoTjIRFohGODfSPbMpTMcoFTKMhEjJGI4qQp9EsfIZxUZpJTMq83GJAoqggROUE0w8GFUl97hgIVSCmyvqHiH8CSUU7u6k1VMYd5YriQNYUDmJZFx3jH6lBCWvU0XfRQJ5VX1cvFI7frDKIrZLh16H81bc95Lp996H2aLZffz%2FTA8kaM8wGgmF3wGGeSSa%2FgT8cdR927AHwPjWC6CLXPNpHM8jWDMS72QUPybxAxGvErjgjEvSFsCl5cDmIZIfAfghZRR8nOtTXMt6ZOI0NXYxsWFxn%2B8pr7I%2FIsRZWhREslFXyIyRYwueRNZa9gSghKBuiXL88KeliuNFJZMqQNd4khiaLIeu1Azf5Ga%2FgOtGzWtd3Q7YlJx%2FH3CVmsvy0qqt3%2FNSF5xkq7U3OUNgJ4sisrNUUY0lwyBMOwQIyo6ccPacJpweTxKE2WHXMLXWv6%2BO26VkMxSgZMTARIcTyJR%2BILRvD7K0SfIpZrA1%2FHOc9RRVwGPLsDHplGOrBAmot10MRHe6HQckbkfQspOAz7rCKYCrPMQMzRIoC9aznk7LhNownzTdyM8icUAOAjEjBmQ5exihjGOohJOx5b4UyHYXv3kCCV59lMiu3GD7gx3z6ug3XBrYAeOAuzA0PYEdrMdsPuZDgXQ6WR0ZHEt8O%2FRiudxNsoG%2FId6Cez608Gei9MExm1%2B3%2BYmku73PQdt6UuyWesbur3v2Nf6jrasou35binxUZrywybX5UGnP97BaG%2Fa4bk%2B8n2Vwxu5lmmpj%2Bx2HJvhgJfzbF70cHVpfw9uwB0Kex%2BHAE29E71mLBRw8iiLhLKQTEgMo%2FNC2qNkFgcrKiR0VbS5JiSRKv%2BBGFtK9gRnjFRNzrVKl19l%2F1XhXhROrbx4tihXni3XpaAr%2BDAv%2BhFMU%2BwPQxxnFRc4Wg%2B%2FwOxrMSAv3ecD8PdibFHIh36UpKVkRv2cV%2Br%2BO9ezbybpTRBfnX37GUOUg4BBOkGsQdOynVBvI1QoiiDDD1XurrK77HpL8Oq4kRDTDatKFb0N6GQLkr0K9HDFwmWpWSIapE3z2JV5gGZtgDEbsYDmeo07oVWpa%2FdNoVUJQ3A4GCrbOYeCYTViMTzv1AMu0DXX0TzXPAgmLdPbPybNl8DkTjhpckNlnDRR3vZwsusxpVSy9SgBD%2FDDk4NNkwebTURylAv6CDLBboeIE2%2BhvNEqSOyu8gooEkmbOilXknS%2B%2BtFW%2BtTAsyrLVeDuGo5QVMUKlPzI51jhIUQDcaKIK2e1tgyYcr%2Fxwa1exzpT4q5pT8iElhyxs04j7U6YTrRT09FkruGpLilvQsbjFLEaFv%2FMBzRtqio8K%2FbvshDFIioyFMBFC%2BbPVgD7NUNiCWpz1%2Fod9YfdwfGu6IginDxKpst4SZMsCznGC%2BGjKpkwvcavn5%2FdMj2j6ra1OisGKlYMWmDF4PzeHfzrnds%2FPp18uLq7%2FtIfL94Wz0i5L2cbvDgXl1hxq9RCqbX9UIs%2FJQEAbGSPzI2c8pb2tmPvnzQoHUYLmdJgJDrLK4zG00XhWR5NJKimVp2bGPkjRCdCI%2FyBGg8yVWbhOWe5Uh1HyZJvQz7PxeDj9fEWjWx1t%2FtKZj%2Fpu7Z4%2B8Ibge0ef%2FOqo20HD%2BwqLzc0hYc3FR7ebcHBK%2Fef8WpJe9Nly%2BFzDM9SsvdqldwUGb%2BxyCjnQM85SnaOg6Rbz3VUREJH2EfC9Zd97PY459XGL16L8YvhOFWCkedcn5lhUQ%2FaaqzTtE0OHuussPf3BTumV7%2FK31%2B0890ILm8uvur06jP9Nvzx%2B%2B4flyjIKGhRodXLn0264XRq9zMBRO5YeT9j%2By4ajfdgFN10KkYBoG4UQ2GTNq5llKFU3SSKi5r%2FlUksAF7WJC%2Fl91KZX%2BTnRTqL2N%2FgAauXoLZet%2ByB8z1ezbaKAOGv3m7rG%2BbcKIbzwh5Qq1vgkDm4U0ezO5U8nOe6nW3307x0iyjmKhBMtfX0XJNjejVxCy8W%2FxGasc7i%2F2qN8%2F8A)
+
+- log 확인
+    - {dbt_root}/logs/dbt.log
+
+    ```bash
+    ============================== 09:36:30.894876 | 28102df1-f0c5-4111-a3c4-40bc4770f6dc ==============================
+    [0m09:36:30.894876 [info ] [MainThread]: Running with dbt=1.7.14
+    ......
+    [0m09:36:33.686079 [debug] [Thread-1  ]: On model.{project_name}.order:
+
+
+        **create table "awsdatacatalog"."{awsdatacaralog_database_name}_{sub_schema_name}"."order__dbt_tmp"
+        with (
+          table_type='iceberg',
+          is_external=false,location='s3://my-bucket/{awsdatacaralog_database_name}_{sub_schema_name}/order__dbt_tmp',
+          format='parquet',
+          optimize_rewrite_delete_file_threshold=2
+        )
+        as**
+
+
+    SELECT year,
+           month,
+           ordered_at,
+           created_at,
+           order_no
+    FROM   temp_order
+    WHERE  ordered_at = '2024-01-01'
+
+    [0m09:36:33.839514 [debug] [Thread-1  ]: dbt.adapters.athena.constants adapter: Athena query ID cb964ec7-eb3f-45ac-bbb2-eb0a6fa2c67f
+    ......
+    [0m09:36:47.005180 [debug] [Thread-1  ]:
+        In "awsdatacatalog"."{awsdatacaralog_database_name}_{sub_schema_name}"."order":
+            Schema changed: False
+            Source columns not in target: []
+            Target columns not in source: []
+            New column types: []
+
+    [0m09:36:47.013781 [debug] [Thread-1  ]: dbt.adapters.athena.constants adapter: Running Athena query:
+    -- /* {"app": "dbt", "dbt_version": "1.7.14", "profile_name": "{project_name}", "target_name": "dev", "node_id": "model.{project_name}.order"} */
+    **merge into "awsdatacatalog"."{awsdatacaralog_database_name}_{sub_schema_name}"."order" as target using "awsdatacatalog"."{awsdatacaralog_database_name}_{sub_schema_name}"."order__dbt_tmp" as src
+              on (target.order_no = src.order_no
+
+          )
+
+          when matched
+              then update set"year" = src."year","month" = src."month","ordered_at" = src."ordered_at","created_at" = src."created_at"
+          when not matched
+            then insert ("year", "month", "ordered_at", "created_at", "order_no")
+             values (src."year", src."month", src."ordered_at", src."created_at", src."order_no")**
+    [0m09:36:47.092228 [debug] [Thread-1  ]: dbt.adapters.athena.constants adapter: Athena query ID 784896b0-19d7-4b89-a362-41df8bda8658
+    ......
+    [0m09:36:56.578330 [debug] [Thread-1  ]: On model.{project_name}.order: -- /* {"app": "dbt", "dbt_version": "1.7.14", "profile_name": "{project_name}", "target_name": "dev", "node_id": "model.{project_name}.order"} */
+
+
+
+        **SELECT '{"rowcount":424004,"data_scanned_in_bytes":7909853}'**
+
+
+    [0m09:36:56.657692 [debug] [Thread-1  ]: dbt.adapters.athena.constants adapter: Athena query ID 99e8b1c5-837a-4133-a9eb-7ff21963935d
+    ......
+    [0m09:36:59.783834 [info ] [MainThread]: Done. PASS=1 WARN=0 ERROR=0 SKIP=0 TOTAL=1
+
+    ```
+
+
+# 4. 기타
+
+## 4.1 오류
+
+- Timestamp
+
+    ```python
+    	  NOT_SUPPORTED: Timestamp precision (3) not supported for Iceberg. Use "timestamp(6)" instead. You may need to manually clean the data at location 's3://my-bucket' before retrying. Athena will not delete data in your account.
+
+    ```
+
+    - https://medium.com/@life-is-short-so-enjoy-it/dbt-athena-iceberg-not-supported-timestamp-precision-3-not-supported-for-iceberg-8a632b5bcb12
+    - 밀리세컨드 timestamp는 iceberg에서 지원하지 않는다는 이야기
+    - 해결방법
+
+    ```sql
+    CAST (event_timestamp AS TIMESTAMP(6)) AS event_timestamp
+    ```
+
+
+## 4.2 참조 링크
