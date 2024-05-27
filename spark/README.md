@@ -59,7 +59,6 @@ $ sh ./Miniconda3-latest-MacOSX-x86_64.sh
 
 - 아래와 같이 가상환경을 생성함
 - $REPO_HOME/data_dev/spark 폴더에서 실행
-    - $REPO_HOME은 여기서 확인 [2.5.2 개발 환경 PATH 추가 (zsh를 사용하는 경우)](https://www.notion.so/2-5-2-PATH-zsh-996ecf4fae2944b39a274bb73646cd66?pvs=21)
 - conda create -n {가상환경이름} -c conda-forge --file ./requirements.txt
 - 가상환경 명을 etl_pyspark로 정의한다면 아래와 같이 실행
 
