@@ -1,0 +1,12 @@
+
+version: 2
+
+models:
+  - name: charge_history_daily
+    description: "과금 이력"
+    columns:
+      - name: charge_no
+        description: "과금 일련 번호"
+        tests:
+          - unique
+          - not_null

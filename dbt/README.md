@@ -4,9 +4,9 @@
 - DBT 설치 - with miniconda / conda가 설치되었다는 가정 아래 실행
 
     ```bash
-    (base)% conda create -n dbt python=3.8.17 #python 버전은 airflow와 동일
+    (base)% conda create -n dbt
     (base)% conda activate dbt
-    (dbt)% pip install dbt-athena-community==1.7.2
+    (dbt)% pip install dbt-athena-community
     ```
 
 - **dbt Cloud 는 지원하지 않음. 즉 dbt cli로만 수행 가능**
@@ -19,11 +19,11 @@
 - 아래와 같이 실행되면, dbt project가 초기화 되며, 필요한 폴더를 모두 자동으로 구성해준다.
 
 ```bash
-(dbt)% dbt init **{project_name}**
+(dbt)% dbt init {project_name}
 
 06:24:28  Running with dbt=1.7.14
 06:24:28
-Your new dbt project "**{project_name}**" was created!
+Your new dbt project "{project_name}" was created!
 
 For more information on how to configure the profiles.yml file,
 please consult the dbt documentation here:
@@ -45,10 +45,10 @@ Which database would you like to use?
 (Don't see the one you want? https://docs.getdbt.com/docs/available-adapters)
 
 Enter a number: 1
-s3_staging_dir (S3 location to store Athena query results and metadata, e.g. s3://athena_query_result/prefix/): **{target_s3_location_metadata}**
-s3_data_dir (S3 location where to store data/tables, e.g. s3://bucket_name/prefix/): **{target_s3_location_data}**
+s3_staging_dir (S3 location to store Athena query results and metadata, e.g. s3://athena_query_result/prefix/): {target_s3_location_metadata}
+s3_data_dir (S3 location where to store data/tables, e.g. s3://bucket_name/prefix/): {target_s3_location_data}
 region_name (AWS region of your Athena instance): ap-northeast-2
-schema (Specify the schema (Athena database) to build models into (lowercase only)): **{awsdatacaralog_database_name}**
+schema (Specify the schema (Athena database) to build models into (lowercase only)): {awsdatacaralog_database_name}
 database (Specify the database (Data catalog) to build models into (lowercase only)) [awsdatacatalog]:
 threads (1 or more) [1]: 1
 ```
@@ -56,10 +56,10 @@ threads (1 or more) [1]: 1
 - dbt 프로젝트 tree를 다음과 같이 설정해보자.  일반적으로 아래와 같이 폴더 트리가 가 생성된다.
 
 ```sql
-**{project_name}**
+{project_name}
 ├── analyses
 ├── models
-|		└── **{sub_schema_name}**
+|		└── {sub_schema_name}
 |       ├── my_first_dbt_model.sql
 |       ├── my_second_dbt_model.sql
 |       └── schema.yml
@@ -86,22 +86,22 @@ logs
 - [DBT 프로파일 설정](https://github.com/dbt-athena/dbt-athena?tab=readme-ov-file#configuring-your-profile)
 
 ```bash
-**{project_name}**:
+{project_name}:
   outputs:
     dev:
       database: awsdatacatalog
       region_name: ap-northeast-2
-      s3_data_dir: **{target_dev_s3_location_metadata}**
-      s3_staging_dir: **{target_dev_s3_location_data}**
-      schema: **{awsdatacaralog_database_name}**
+      s3_data_dir: {target_dev_s3_location_metadata}
+      s3_staging_dir: {target_dev_s3_location_data}
+      schema: {awsdatacaralog_database_name}
       threads: 1
       type: athena
     prod:
       database: awsdatacatalog
       region_name: ap-northeast-2
-      s3_data_dir: **{target_prod_s3_location_metadata}**
-      s3_staging_dir: **{target_prod_s3_location_data}**
-      schema: **{awsdatacaralog_database_name}**
+      s3_data_dir: {target_prod_s3_location_metadata}
+      s3_staging_dir: {target_prod_s3_location_data}
+      schema: {awsdatacaralog_database_name}
       threads: 4
       type: athena
   target: dev
@@ -116,11 +116,11 @@ logs
 # Name your project! Project names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's
 # name or the intended use of these models
-name: '**{project_name}**'
+name: '{project_name}'
 version: '1.0.0'
 
 # This setting configures which "profile" dbt uses for this project.
-profile: '**{project_name}**'
+profile: '{project_name}'
 
 # These configurations specify where dbt should look for different types of files.
 # The `model-paths` config, for example, states that models in this project can be
@@ -143,9 +143,9 @@ clean-targets:         # directories to be removed by `dbt clean`
 # directory as views. These settings can be overridden in the individual model
 # files using the `{{ config(...) }}` macro.
 models:
-  **{project_name}**:
+  {project_name}:
     # Config indicated by + and applies to all files under models/example/
-    **{sub_schema_name}**:
+    {sub_schema_name}:
       +materialized: incremental
 
 ```
@@ -194,7 +194,7 @@ models:
 
     - order.sql로 파일명을 설정하면, table name은 order임
     - database는 profiles.yml의  schema + models/order.sql의 config에 있는 schema의 조합으로 명령됨
-        - **{awsdatacaralog_database_name}_{sub_schema_name}**
+        - {awsdatacaralog_database_name}_{sub_schema_name}
         - awsdatacaralog_database_name가 tier2 sub_schema_name가  order인 경우
             - tier2_order ←로 database 명이 명령됨
     - table name은 파일명으로 고정

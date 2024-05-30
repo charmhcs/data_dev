@@ -3,7 +3,7 @@
 - [Conda 설치 및 Apache Spark with AWS EMR (pySpark) &  AWS S3 (loacl minio)](https://github.com/charmhcs/data_dev/tree/master/spark#readme)
 - Apache kafka
 - Apache Airflow
-- DTB with Athena
+- [DTB with Athena](https://github.com/charmhcs/data_dev/tree/master/dbt)
 - DataHub
 - Apache Pinot with Streamlit realtime dashboard
 
