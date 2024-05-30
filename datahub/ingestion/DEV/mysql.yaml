@@ -1,0 +1,12 @@
+source:
+    type: mysql
+    config:
+        env: DEV
+        platform_instance: test
+        # Coordinates
+        host_port: dev-db.ap-northeast-2.rds.amazonaws.com
+        database: test
+
+        # Credentials
+        username: ${DEV_USERNAME}
+        password: ${DEV_PASSWORD}

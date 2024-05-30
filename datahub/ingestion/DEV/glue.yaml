@@ -1,0 +1,11 @@
+source:
+    type: glue
+    config:
+        env: DEV
+        platform_instance: t1_common
+        aws_region: ap-northeast-2
+        database_pattern:
+            allow:
+                - ^develop_t1_common
+            deny: []
+            ignoreCase: true

@@ -1,0 +1,12 @@
+source:
+    type: mysql
+    config:
+        env: PROD
+        platform_instance: test
+        # Coordinates
+        host_port: prod-db.ap-northeast-2.rds.amazonaws.com
+        database: test
+
+        # Credentials
+        username: ${PROD_USERNAME}
+        password: ${PROD_PASSWORD}

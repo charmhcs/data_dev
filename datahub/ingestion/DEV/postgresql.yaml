@@ -1,0 +1,12 @@
+source:
+    type: postgres
+    config:
+        env: DEV
+        platform_instance: source_db_airflow
+        # Coordinates
+        host_port: dev-postgresql-headless.database-dev.svc.cluster.local
+        database: airflow
+
+        # Credentials
+        username: ${DEV_K8S_POSTGRES_USERNAME}
+        password: ${DEV_K8S_POSTGRES_PASSWORD}
