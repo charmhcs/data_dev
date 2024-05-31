@@ -34,11 +34,11 @@
 ```bash
 airflow
 └──  dag
-        └──  utils
-                    └── emr_util.py
+|       └──  utils
+|                   └── emr_util.py
 spark
 ├── etc
-|		├──  library
+|       ├──  library
 |       └──  setup
 |                   └── emr
 |                           └── preinstall.sh
@@ -46,15 +46,15 @@ spark
 └── build.sh
 ```
 
-- build.sh
+- /spark/build.sh
     - setup.py 실행 및 library, pyspark파일을 s3에 복사
-- setup.py
+- /spark/setup.py
     - pyspark 실행에 필요한 python 컴퍼넌트 빌드
     - helper 등
-- etc/set/emr/
+- /spark/etc/set/emr/
     - emr bootstrap 실행 파일
     - emr에 필요한 library 복사 및 .whl 배포 파일을 pip로 설정
-- etc/library
+- /spark/etc/library
     - AWS EMR에 추가할 jar file
-- airflow/dag/tuils/emr_util.py
+- /airflow/dag/tuils/emr_util.py
     - airflow에서 AWS EMR cluster를 create할 때 필요한 요소들
