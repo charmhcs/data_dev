@@ -1,4 +1,4 @@
-# 1 데이터 분석을 위한 환경 구축
+## 1 데이터 분석을 위한 환경 구축
 
 ### 1.1 로컬 PC 환경 설정
 
@@ -6,7 +6,7 @@
 2. [DTB with Athena](https://github.com/charmhcs/data_dev/tree/master/dbt)
 3. Airflow (작성중)
 
-# 2 AWS EMR를 이용한 분석환경 배포 및 실행
+## 2 AWS EMR를 이용한 분석환경 배포 및 실행
 
 ### 2.1 spark 배포 워크플로
 ![](https://github.com/charmhcs/data_dev/blob/master/pyspark.drawio.png?raw=true)
