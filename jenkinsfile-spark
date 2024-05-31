@@ -1,0 +1,146 @@
+#!groovy
+
+import groovy.json.JsonOutput
+import java.util.Optional
+import java.text.SimpleDateFormat
+import hudson.model.*
+import jenkins.model.*
+import hudson.model.Fingerprint.RangeSet
+
+node('agent-default') {
+    def scmVars
+    def currentBranch
+    def gitAuthour = "charmhcs"
+    def gitLastCommitMessage = "init"
+    def isSuccessCD = true
+    def argocdApplication
+    def s3_bucket
+
+    try {
+        scmVars = checkout scm
+
+        // git tag 동기화: git tag 는 git pull 로 remote 에서 제거된 tag 가 제거 되지 않음. tag 는 jenkins 에서 알아서 fetch 함!
+        sh(script: "git checkout ${scmVars.GIT_BRANCH}")
+
+        println "current build number => " + env.BUILD_NUMBER
+
+        currentBranch = "${scmVars.GIT_BRANCH}"
+        println "currentBranch == ${currentBranch}"
+    } catch (e) {
+        notifySlackForError("")
+        throw e
+    }
+
+    stage('Set Variable for CD') {
+        try {
+            def commit = sh(returnStdout: true, script: 'git rev-parse HEAD')
+            gitCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim().take(6)
+            gitAuthour = sh(returnStdout: true, script: "git --no-pager show -s --format='%an' ${commit}").trim()
+            gitLastCommitMessage = sh(returnStdout: true, script: 'git log -1 --pretty=%B').trim()
+
+            println "gitCommit = ${gitCommit}"
+            println "gitAuthour = ${gitAuthour}"
+            println "gitLastCommitMessage = ${gitLastCommitMessage}"
+
+            // production, staging, develop 환경 별 분기
+            if (currentBranch == "origin/master" || currentBranch == "master") {
+                println "master"
+                s3_bucket  = "production.{data}"
+            } else if (currentBranch.startsWith("origin/hotfix") || currentBranch.startsWith("hotfix/")) {
+                println "hotfix"
+                s3_bucket  = "production.{data}"
+            } else if (currentBranch == "origin/develop" || currentBranch == "develop") {
+                println "develop"
+                s3_bucket  = "develop.{data}"
+            } else {
+                println "other-branch not CD build."
+                s3_bucket  = "local.{data}/user/jenkins"
+            }
+
+            println "s3_bucket = ${s3_bucket}"
+
+        } catch (e) {
+            notifySlackForError("", "Spark Build", gitAuthour)
+            throw e
+        }
+
+    }
+
+    stage('Spark build Start with Send To Slack') {
+        try {
+            notifySlack("", [
+                [
+                    title: "Spark 코드 빌드 시작!",
+                    title_link: "${env.BUILD_URL}",
+                    color: "#3498DB",
+                    author_name: "${gitAuthour}",
+                    fields: [
+                        [
+                            title: 'Jenkins Job',
+                            value: "${env.JOB_NAME}",
+                            short: true
+                        ],
+                        [
+                            title: 'Branch',
+                            value: "${currentBranch}",
+                            short: true
+                        ],
+                        [
+                            title: 'Git Author',
+                            value: "${gitAuthour}",
+                            short: true
+                        ],
+                        [
+                            title: 'Last Commit message',
+                            value: "${gitLastCommitMessage}",
+                            short: false
+                        ]
+                    ],
+                    footer: "${env.JOB_NAME}",
+                    ts: System.currentTimeMillis() / 1000
+                ]
+            ])
+        } catch (e) {
+            notifySlackForError("", "Spark Build", gitAuthour)
+            throw e
+        }
+    }
+
+    stage('Build Spark Code') {
+        try {
+            dir('spark'){
+                sh "./build.sh ${s3_bucket}"
+            }
+        } catch (e) {
+            notifySlackForError("", "Spark Build", gitAuthour)
+            throw e
+        }
+    }
+
+    stage('Spark Code Build Success Send To Slack') {
+        try {
+            def notiFields = [
+                [
+                    title: '빌드 위치',
+                    value: "${s3_bucket}",
+                    short: true
+                ]
+            ]
+
+            notifySlack("", [
+                [
+                    title: "Spark 코드 빌드 성공!",
+                    title_link: "${env.BUILD_URL}",
+                    color: "#1E8449",
+                    author_name: "${gitAuthour}",
+                    fields: notiFields.flatten(),
+                    footer: "${env.JOB_NAME}",
+                    ts: System.currentTimeMillis() / 1000
+                ]
+            ])
+        } catch (e) {
+            notifySlackForError("", "Spark Build", gitAuthour)
+            throw e
+        }
+    }
+}
