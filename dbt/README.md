@@ -55,7 +55,7 @@ threads (1 or more) [1]: 1
 
 - dbt 프로젝트 tree를 다음과 같이 설정해보자.  일반적으로 아래와 같이 폴더 트리가 가 생성된다.
 
-```sql
+```bash
 {project_name}
 ├── analyses
 ├── models

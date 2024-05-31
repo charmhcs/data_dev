@@ -29,3 +29,32 @@
       sudo aws s3 cp s3://${s3_bucket}${build_path}/src/setup/etl_common-0.1-py3-none-any.whl ./
       sudo python3 -m pip install etl_common-0.1-py3-none-any.whl
   ```
+### 2.3 구조
+
+```bash
+airflow
+└──  dag
+        └──  utils
+                    └── emr_util.py
+spark
+├── etc
+|		├──  library
+|       └──  setup
+|                   └── emr
+|                           └── preinstall.sh
+├── setup.py
+└── build.sh
+```
+
+- build.sh
+    - setup.py 실행 및 library, pyspark파일을 s3에 복사
+- setup.py
+    - pyspark 실행에 필요한 python 컴퍼넌트 빌드
+    - helper 등
+- etc/set/emr/
+    - emr bootstrap 실행 파일
+    - emr에 필요한 library 복사 및 .whl 배포 파일을 pip로 설정
+- etc/library
+    - AWS EMR에 추가할 jar file
+- airflow/dag/tuils/emr_util.py
+    - airflow에서 AWS EMR cluster를 create할 때 필요한 요소들
