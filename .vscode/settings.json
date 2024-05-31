@@ -5,6 +5,6 @@
   "python.linting.pycodestyleArgs": ["--ignore=E501,E111"],
   "python.linting.lintOnSave": true,
   "python.analysis.extraPaths": [
-    "./etl/spark/src"
+    "./spark/src"
   ]
 }
