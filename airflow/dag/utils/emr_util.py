@@ -44,7 +44,7 @@ class EmrUtil(object):
         self.build_path_spark =  Variable.get("build_path_spark")
 
     def default_job_flow_override(self,
-                                  bootstrap_name: str = 'etl-preinstall'):
+                                  bootstrap_name: str = 'preinstall'):
         return {
             'Name': f'{self.env}-{self.emr_name}',
             'LogUri': f'{self.aws_log_uri}',
@@ -120,7 +120,7 @@ class EmrUtil(object):
             ]
         }
 
-    def test_job_flow_override(self, bootstrap_name: str = 'etl-preinstall'):
+    def test_job_flow_override(self, bootstrap_name: str = 'preinstall'):
         return {
             'Name': f'{self.env}-{self.emr_name}',
             'LogUri': f'{self.aws_log_uri}',
@@ -197,12 +197,12 @@ class EmrUtil(object):
 
     def bootstrap_action(self,
                          bootstrap_name: str):
-        if bootstrap_name.__eq__('etl-preinstall_kst'):
+        if bootstrap_name.__eq__('preinstall'):
             return [
                 {
-                    'Name': "etl-preinstall_kts",
+                    'Name': "preinstall",
                     'ScriptBootstrapAction': {
-                        'Path': f's3://{self.s3_bucket}{self.build_path_spark}/src/setup/emr/etl-preinstall_kst.sh',
+                        'Path': f's3://{self.s3_bucket}{self.build_path_spark}/src/setup/emr/preinstall.sh',
                         'Args': [f'{self.s3_bucket}', f'{self.build_path_spark}']
                     }
                 }
@@ -210,10 +210,8 @@ class EmrUtil(object):
         else:
             return [
                 {
-                    'Name': "etl-preinstall",
+                    'Name': "none_preinstall",
                     'ScriptBootstrapAction': {
-                        'Path': f's3://{self.s3_bucket}{self.build_path_spark}/src/setup/emr/etl-preinstall.sh',
-                        'Args': [f'{self.s3_bucket}', f'{self.build_path_spark}']
                     }
                 }
             ]
