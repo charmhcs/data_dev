@@ -106,7 +106,7 @@ Written to /Users/cshwang/.datahubenv
     ```bash
     (datahub)%  datahub delete --entity_type dataset --env PROD
     [2023-04-25 08:48:43,133] INFO     {datahub.cli.delete_cli:290} - datahub configured with http://dev-api-datahub.io
-    [2023-04-25 08:48:43,700] INFO     {datahub.cli.delete_cli:327} - Filter matched 69  dataset entities of None. Sample: ['urn:li:dataset:(urn:li:dataPlatform:glue,order.t1_db_order_stts_appsis.ald_grp_br_change,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:glue,order.t1_db_order_appsis_old.ald_a01_record_old,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:glue,order.t1_db_order_appsis_old.ald_a01_record,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:glue,order.t1_db_order_stts_appsis.ald_adj_hq_cash_log,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:glue,order.t1_db_order_stts_appsis.ald_adj_br_cash_log,PROD)']
+    [2023-04-25 08:48:43,700] INFO     {datahub.cli.delete_cli:327} - Filter matched 69  dataset entities of None. Sample: ['urn:li:dataset:(urn:li:dataPlatform:glue,order.data.ald_grp_br_change,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:glue,order.t1_db_order_old.order_old,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:glue,order.t1_db_order_old.order,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:glue,order.data.ald_adj_hq_cash_log,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:glue,order.data.ald_adj_br_cash_log,PROD)']
     This will soft delete 69 entities. Are you sure? [y/N]: y
     100% (69 of 69) |##########################################################################################################################################################| Elapsed Time: 0:00:03 Time:  0:00:03
     Took 11.656 seconds to soft delete -1 versioned rows and 0 timeseries aspect rows for 69 entities.

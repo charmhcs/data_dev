@@ -128,13 +128,7 @@ $ sh ./Miniconda3-latest-MacOSX-x86_64.sh
 
 ### 4.1 선행 사항
 
-- github의 barogo-data에 접근 권한 획득
-- barogo-data repository를  개인 pc의 $HOME/{repository_home_path}에  git-clone
-    - $HOME/{repository_home_path}의 예 (MacOS를 사용사고, 사용자 계정이 borogo인 경우)
-        - /Users/barogo/develop/repo
-        - /Users/barogo/develop/repository
-        - /Users/barogo/repository
-    - repository위치는 개인이 알아서 설정함
+- github의 코드를 pull
 
 ### 4.2 개발 환경 PATH 추가 (zsh를 사용하는 경우)
 

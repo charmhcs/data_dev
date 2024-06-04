@@ -1,0 +1,350 @@
+#!groovy
+
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import java.util.Optional
+import java.text.SimpleDateFormat
+import hudson.model.*
+import jenkins.model.*
+import hudson.model.Fingerprint.RangeSet
+
+node('agent-default') {
+    def scmVars
+    def currentBranch
+    def dockerTag
+    def gitAuthour = "charmhcs"
+    def gitLastCommitMessage = "init"
+    def namespace
+    def eksCluster
+    def environment
+    def ecrRepo
+    def previousImage
+    def argoCdInfraBranch = 'main'
+    def isSuccessCD = true
+    def argocdApplication
+
+    try {
+        scmVars = checkout scm
+
+        // git tag 동기화: git tag 는 git pull 로 remote 에서 제거된 tag 가 제거 되지 않음. tag 는 jenkins 에서 알아서 fetch 함!
+        sh(script: "git checkout ${scmVars.GIT_BRANCH}")
+
+        println "current build number => " + env.BUILD_NUMBER
+
+        currentBranch = "${scmVars.GIT_BRANCH}"
+        println "currentBranch == ${currentBranch}"
+    } catch (e) {
+        notifySlackForError("")
+        throw e
+    }
+
+    stage('Set Variable for CI') {
+        try {
+            def commit = sh(returnStdout: true, script: 'git rev-parse HEAD')
+            gitCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim().take(6)
+            gitAuthour = sh(returnStdout: true, script: "git --no-pager show -s --format='%an' ${commit}").trim()
+            gitLastCommitMessage = sh(returnStdout: true, script: 'git log -1 --pretty=%B').trim()
+
+            println "gitCommit = ${gitCommit}"
+            println "gitAuthour = ${gitAuthour}"
+            println "gitLastCommitMessage = ${gitLastCommitMessage}"
+
+            // production, staging, develop 환경 별 분기
+            if (currentBranch == "origin/master" || currentBranch == "master") {
+                println "master"
+                latestTag = sh(returnStdout: true, script: "git tag --sort version:refname | tail -1").trim()
+                dir('etl/airflow'){
+                    def jsonFile = readFile(file: './config.json')
+                    def jsonData = new JsonSlurper().parseText(jsonFile)
+                    def version = jsonData.version
+
+                    println "version in etl/airflow/config.json: ${version}"
+
+                    if (latestTag >= version) {
+                        error "현재 배포된 tag와 config.json의 version 값이 일치합니다. etl/airflow/config.json의 version을 업데이트해주세요."
+                    }
+                    dockerTag = version
+                }
+                namespace = "airflow"
+                environment = "prod"
+                eksCluster = "staging-cluster"
+                argocdApplication = "airflow"
+            } else if (currentBranch.startsWith("origin/hotfix") || currentBranch.startsWith("hotfix/")) {
+                println "hotfix"
+                dockerTag = "hotfix-${gitCommit}"
+                namespace = "airflow"
+                environment = "prod"
+                eksCluster = "staging-cluster"
+                argocdApplication = "airflow"
+            } else if (currentBranch == "origin/develop" || currentBranch == "develop") {
+                println "develop"
+                dockerTag = "development-${gitCommit}"
+                namespace = "airflow-dev"
+                environment = "dev"
+                eksCluster = "staging-cluster"
+                argocdApplication = "airflow-dev"
+            } else {
+                dockerTag = "test-${gitCommit}"
+                println "other-branch not ci build."
+                environment = "dev"
+                eksCluster = "staging-cluster"
+                argocdApplication = "airflow-dev"
+            }
+
+            println "dockerTag = ${dockerTag}"
+        } catch (e) {
+            notifySlackForError("", "CI", gitAuthour)
+            throw e
+        }
+
+    }
+
+    stage('CI CD Start with Send To Slack') {
+        try {
+            notifySlack("", [
+                [
+                    title: "CI CD 시작!",
+                    title_link: "${env.BUILD_URL}",
+                    color: "#3498DB",
+                    author_name: "${gitAuthour}",
+                    fields: [
+                        [
+                            title: 'Jenkins Job',
+                            value: "${env.JOB_NAME}",
+                            short: true
+                        ],
+                        [
+                            title: 'Branch',
+                            value: "${currentBranch}",
+                            short: true
+                        ],
+                        [
+                            title: 'Git Author',
+                            value: "${gitAuthour}",
+                            short: true
+                        ],
+                        [
+                            title: 'Last Commit message',
+                            value: "${gitLastCommitMessage}",
+                            short: false
+                        ]
+                    ],
+                    footer: "${env.JOB_NAME}",
+                    ts: System.currentTimeMillis() / 1000
+                ]
+            ])
+        } catch (e) {
+            notifySlackForError("", "CI", gitAuthour)
+            throw e
+        }
+    }
+
+    // master 브랜치인 경우, git tag를 만들고 push하는 stage 추가
+    if (currentBranch == "origin/master" || currentBranch == "master") {
+        stage('Create Git Tag And Push'){
+            try {
+                sh(script: "git tag ${dockerTag}")
+                withCredentials([gitUsernamePassword(credentialsId: 'developer')]) {
+                    sh """
+                        git push origin ${dockerTag}
+                    """
+                }
+            } catch (e) {
+                notifySlackForError("", "CI", gitAuthour)
+                throw e
+            }
+        }
+    }
+
+    stage('Docoker Build and Push') {
+        try {
+            dir("etl/airflow") {
+                buildApp = docker.build("-data/airflow:${dockerTag}")
+            }
+
+            docker.withRegistry("https://653983231979.dkr.ecr.ap-northeast-2.amazonaws.com", "ecr:ap-northeast-2:jenkins") {
+                buildApp.push()
+            }
+        } catch (e) {
+            notifySlackForError("", "CI", gitAuthour)
+            throw e
+        }
+    }
+
+    stage('CI Success Send To Slack') {
+        try {
+            def notiFields = [
+                [
+                    title: 'Jenkins Job',
+                    value: "${env.JOB_NAME}",
+                    short: true
+                ],
+                [
+                    title: 'Branch',
+                    value: "${currentBranch}",
+                    short: true
+                ],
+                [
+                    title: 'Git Author',
+                    value: "${gitAuthour}",
+                    short: true
+                ],
+                [
+                    title: 'Last Commit message',
+                    value: "${gitLastCommitMessage}",
+                    short: false
+                ]
+            ]
+
+            notifySlack("", [
+                [
+                    title: "CI 성공!",
+                    title_link: "${env.BUILD_URL}",
+                    color: "#1E8449",
+                    author_name: "${gitAuthour}",
+                    fields: notiFields.flatten(),
+                    footer: "${env.JOB_NAME}",
+                    ts: System.currentTimeMillis() / 1000
+                ]
+            ])
+        } catch (e) {
+            notifySlackForError("", "CI", gitAuthour)
+            throw e
+        }
+    }
+
+    stage('Update Git With Docker Tag') {
+        try {
+            dir('') {
+                git credentialsId: 'developer', url: 'https://github.com/{name}/argocd-infra.git', branch: "${argoCdInfraBranch}", poll: false, changelog: false
+
+                def valuesFileLocation = "${eksCluster}/airflow/${environment}/values-apply.yaml"
+                previousImage = sh(returnStdout: true ,script: "yq e '.images.airflow.tag' ${valuesFileLocation}").trim()
+                ecrRepo = sh(returnStdout: true ,script: "yq e '.images.airflow.repository' ${valuesFileLocation}").trim()
+
+                sh """
+                    yq e -i '.images.airflow.tag = "${dockerTag}"' ${valuesFileLocation}
+                    cat ${valuesFileLocation}
+                """
+
+                withCredentials([gitUsernamePassword(credentialsId: 'developer')]) {
+                gitDiff = sh(returnStdout: true ,script: 'git status --porcelain')
+                if (gitDiff.trim()) {
+                    sh """
+                        git config --global user.email "gitops@{name}.com"
+                        git config --global user.name "gitops"
+                        git commit -am '[CI] Update Airflow Docker Image ${dockerTag}'
+                        git pull origin ${argoCdInfraBranch} && git push --set-upstream origin ${argoCdInfraBranch}
+                    """
+                }
+                }
+            }
+        } catch (e) {
+            notifySlackForError("", "CD", gitAuthour)
+            throw e
+        }
+    }
+
+    stage('CD Success Eend To Slack') {
+        try {
+            def notiFields = [
+                [
+                    title: 'Previous Images',
+                    value: "${previousImage}",
+                    short: true
+                ],
+                [
+                    title: 'New Images',
+                    value: "${dockerTag}",
+                    short: true
+                ],
+                [
+                    title: 'ArgoCD Access Link',
+                    value: "https://staging-argocd.{name}.io/applications/airflow",
+                    short: false
+                ],
+                [
+                    title: 'Last Commit message',
+                    value: "${gitLastCommitMessage}",
+                    short: false
+                ]
+            ]
+
+            notiFields.add([
+                [
+                    title: 'check log from k8s pod',
+                    value: "kubectl --namespace ${namespace} logs -f {pod name}",
+                    short: false
+                ]
+            ])
+
+            notifySlack("", [
+                [
+                    title: "CD 성공!",
+                    title_link: "${env.BUILD_URL}",
+                    color: "#1E8449",
+                    author_name: "${gitAuthour}",
+                    fields: notiFields.flatten(),
+                    footer: "${env.JOB_NAME}",
+                    ts: System.currentTimeMillis() / 1000
+                ]
+            ])
+        } catch (e) {
+            notifySlackForError("", "CI", gitAuthour)
+            throw e
+        }
+    }
+}
+
+def notifySlack(text, attachments) {
+    def slackURL = 'https://hooks.slack.com/services/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' // data_ci_cd
+    def jenkinsIcon = 'https://avatars.slack-edge.com/2019-05-08/628787263668_7a9ee5e84462be745c7a_48.jpg'
+
+    def payload = JsonOutput.toJson([text: text,
+        channel: 'data_ci_cd',
+        // channel: 'shared_alert_channel',
+        username: "Jenkins",
+        icon_url: jenkinsIcon,
+        attachments: attachments
+    ])
+
+    sh "curl -X POST --data-urlencode \'payload=${payload}\' ${slackURL}"
+}
+
+def notifySlackForError(text, cicdType, gitAuthour) {
+    def slackURL = 'https://hooks.slack.com/services/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' // data_ci_cd
+    def jenkinsIcon = 'https://avatars.slack-edge.com/2019-05-08/628787263668_7a9ee5e84462be745c7a_48.jpg'
+
+    attachments = [
+        [
+            title: "${cicdType} FAIL!",
+            title_link: "${env.BUILD_URL}",
+            color: "#CB4335",
+            author_name: "${gitAuthour}",
+            fields: [
+                [
+                    title: "Jenkins Job",
+                    value: "${env.JOB_NAME}",
+                    short: false
+                ],
+                [
+                    title: 'ArgoCD Access Link',
+                    value: "https://staging-argocd.{name}.io/applications/${argocdApplication}",
+                    short: true
+                ]
+            ],
+            footer: "${env.JOB_NAME}",
+            ts: System.currentTimeMillis() / 1000
+        ]
+    ]
+
+    def payload = JsonOutput.toJson([text: text,
+        channel: 'data_ci_cd',
+        // channel: 'shared_alert_channel',
+        username: "Jenkins",
+        icon_url: jenkinsIcon,
+        attachments: attachments
+    ])
+
+    sh "curl -X POST --data-urlencode \'payload=${payload}\' ${slackURL}"
+}

@@ -42,15 +42,15 @@ SELECT  DATE_FORMAT(date '{{ var('current_date') }}', '%Y') AS  year,
         addr5_ed,
         area_seq,
         action_name
-   FROM t1_db_o2o_appsis.ALD_GRP_ST_CHARGE a
+   FROM t1_dataALD_GRP_ST_CHARGE a
    LEFT JOIN (SELECT charge_no, MAX(action_date) in_date, action_name
-                    FROM t1_db_o2o_appsis.ALD_GRP_ST_CHARGE_HISTORY
+                    FROM t1_dataALD_GRP_ST_CHARGE_HISTORY
                 WHERE action_date_ymd BETWEEN (SELECT start_date FROM v_date) AND (SELECT end_date FROM v_date)
                     AND action_date BETWEEN (SELECT start_datetime FROM v_date) AND (SELECT end_datetime FROM v_date)
                 GROUP BY charge_no, action_name) b
         ON a.charge_no = b.charge_no
   WHERE a.charge_no IN (SELECT DISTINCT charge_no
-                            FROM t1_db_o2o_appsis.ALD_GRP_ST_CHARGE_HISTORY
+                            FROM t1_dataALD_GRP_ST_CHARGE_HISTORY
                             WHERE action_date_ymd BETWEEN (SELECT start_date FROM v_date) AND (SELECT end_date FROM v_date)
                             AND action_date BETWEEN (SELECT start_datetime FROM v_date) AND (SELECT end_datetime FROM v_date))
 UNION ALL
@@ -73,7 +73,7 @@ SELECT  DATE_FORMAT(date '{{ var('current_date') }}', '%Y') AS  year,
         addr5_ed,
         area_seq,
         action_name
-   FROM t1_db_o2o_appsis.ALD_GRP_ST_CHARGE_HISTORY
+   FROM t1_dataALD_GRP_ST_CHARGE_HISTORY
   WHERE action_date_ymd BETWEEN (SELECT start_date FROM v_date) AND (SELECT end_date FROM v_date)
     AND action_date BETWEEN (SELECT start_datetime FROM v_date) AND (SELECT end_datetime FROM v_date)
     AND action_name LIKE '%DELETE%'
@@ -98,5 +98,5 @@ SELECT  DATE_FORMAT(date '{{ var('current_date') }}', '%Y') AS  year,
         addr5_ed,
         area_seq,
         'NEW'
-   FROM t1_db_o2o_appsis.ALD_GRP_ST_CHARGE
+   FROM t1_dataALD_GRP_ST_CHARGE
   WHERE in_date BETWEEN (SELECT start_datetime FROM v_date) AND (SELECT end_datetime FROM v_date)

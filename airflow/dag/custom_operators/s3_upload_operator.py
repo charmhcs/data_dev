@@ -34,9 +34,8 @@ class S3UploadOperator(BaseOperator):
             - dict /json 형태의 데이터
         data_path:
             - file path
-            - s3 url or 코드의 include dir 안의 file path  
-                - ex. s3://local.barogo-data/your/source/path
-                - ex. (코드의 include 폴더 안의) t0_database/json/gorela/gorela_table_category.json
+            - s3 url or 코드의 include dir 안의 file path
+                - ex. s3://data/your/source/path
         target_path:
             - 데이터를 저장할 s3 위치
         source_extension:
