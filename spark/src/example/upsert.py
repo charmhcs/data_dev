@@ -57,22 +57,14 @@ class Upsert(object):
         df_order_record = (
                                 df_order_record.withColumn("order_phone_number", expr(f"base64(aes_encrypt(order_phone_number, '{self.config.crypt_key}', 'GCM'))"))
                                                 .withColumn("order_phone_number2", expr(f"base64(aes_encrypt(order_phone_number2, '{self.config.crypt_key}', 'GCM'))"))
-                                                .withColumn("ord_cu_name", expr(f"base64(aes_encrypt(ord_cu_name, '{self.config.crypt_key}', 'GCM'))"))
-                                                .withColumn("ord_tel", expr(f"base64(aes_encrypt(ord_tel, '{self.config.crypt_key}', 'GCM'))"))
-                                                .withColumn("cth_wk_name", expr(f"base64(aes_encrypt(cth_wk_name, '{self.config.crypt_key}', 'GCM'))"))
-                                                .withColumn("ea_addr5", expr(f"base64(aes_encrypt(ea_addr5, '{self.config.crypt_key}', 'GCM'))"))
-                                                .withColumn("ea_addr7", expr(f"base64(aes_encrypt(ea_addr7, '{self.config.crypt_key}', 'GCM'))"))
-                                                .withColumn("ea_map_x", expr(f"base64(aes_encrypt(ea_map_x, '{self.config.crypt_key}', 'GCM'))"))
-                                                .withColumn("ea_map_y", expr(f"base64(aes_encrypt(ea_map_y, '{self.config.crypt_key}', 'GCM'))"))
-                                                .withColumn("cth_wk_tel", expr(f"base64(aes_encrypt(cth_wk_tel, '{self.config.crypt_key}', 'GCM'))"))
                             )
-        self.__process_with_df('order_record', 'ord_no', 'in_date', 'year, month, ord_date_ymd, in_date_ymd', df_order_record)
+        self.__process_with_df('order_record', 'order_id', 'created_at', 'year, month, order_date, create_date', df_order_record)
 
 
     def daily_batch_10h(self) -> None:
         self.process_date = DatetimeFactory(self.execute_date_time, CommonConstant.KST, CommonConstant.KST_START_HHmmss, CommonConstant.KST_END_HHmmss).default()
         self.process_date.logging(self.spark)
-        self.__process('adjustment_cash', 'seq_no',  'update_date', 'year, month, in_date_ymd', Queries().adjustment_cash.format(self.process_date.start_date_time, self.process_date.end_date_time, CommonConstant.DEFAULT_NLS_DATE_FORMAT))
+        self.__process('adjustment_cash', 'sequence_no',  'updated_at', 'year, month, create_date', Queries().adjustment_cash.format(self.process_date.start_date_time, self.process_date.end_date_time, CommonConstant.DEFAULT_NLS_DATE_FORMAT))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

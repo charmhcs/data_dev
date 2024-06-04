@@ -42,7 +42,7 @@ class Increment():
                           where_column: str,
                           df: DataFrame = None) -> None:
             target_path = f"{self.target_path}/{table_name}"
-            (df.write.partitionBy('year', 'month', f'{where_column}_ymd')
+            (df.write.partitionBy('year', 'month', f'{where_column}_date')
                      .format("parquet")
                      .mode(SparkEnv.OVERWRITE)
                      .options(**SparkHelper().overwrite_option_with_parquet_dynamic_partition(SparkEnv.COMPRESSION_GZIP))
@@ -54,11 +54,11 @@ class Increment():
         self.process_date.logging(self.spark)
         self.__process('ald_adj_br_share', 'load_date', Queries().ald_adj_br_share.format(self.process_date.end_date))
         __process_date = DatetimeFactory(self.execute_date_time, CommonConstant.KST, CommonConstant.KST_START_HHmmss, CommonConstant.KST_END_HHmmss).interval(CommonConstant.DEFAULT_ADJUST_DAYS)
-        self.__process('store_charge_history', 'action_date', Queries().store_charge_history.format(__process_date.start_date_time, __process_date.end_date_time, CommonConstant.DEFAULT_NLS_DATE_FORMAT))
+        self.__process('store_charge_history', 'action_at', Queries().store_charge_history.format(__process_date.start_date_time, __process_date.end_date_time, CommonConstant.DEFAULT_NLS_DATE_FORMAT))
 
     def daily_batch_10h(self) -> None:
         self.process_date.logging(self.spark)
-        self.__process('system_base_code', 'adj_day', Queries().system_base_code.format(self.process_date.end_date))
+        self.__process('system_base_code', 'adjustment_day', Queries().system_base_code.format(self.process_date.end_date))
 
 if __name__ == "__main__":
 
