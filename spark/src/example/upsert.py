@@ -8,9 +8,6 @@ from helpers.factory import RdbmsEtlFactory
 from helpers.factory import DatetimeFactory
 from config import Config
 from pyspark.sql.functions import expr
-
-
-
 import argparse
 
 class Upsert(object):
